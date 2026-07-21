@@ -142,6 +142,10 @@
       <p class="hint">Apunta la cámara al QR del cliente.</p>
       <div id="reader"></div>
       <div id="scan-status">Iniciando cámara…</div>
+      <div id="zoom-control" style="display:none;margin-top:10px;">
+        <label style="margin-bottom:2px;">Zoom de la cámara</label>
+        <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1">
+      </div>
 
       <div class="client-box" id="client-box">
         <div class="name" id="c-nombre"></div>
@@ -273,14 +277,45 @@ function startScanner(){
   html5Qr = new Html5Qrcode('reader');
   Html5Qrcode.getCameras().then(cams=>{
     if(!cams.length){ status.textContent='No se encontró cámara.'; return; }
-    const camId = cams.find(c=>/back|rear|environment/i.test(c.label))?.id || cams[cams.length-1].id;
-    html5Qr.start(camId, { fps:10, qrbox:{width:230, height:230}, aspectRatio:1.0 }, onScan).then(()=>{
+    // evitar lentes "tele/zoom" (que enfocan muy de cerca) y preferir la cámara
+    // trasera normal / "wide"
+    const trasera = cams.filter(c=>/back|rear|environment/i.test(c.label));
+    const sinTele = trasera.filter(c=>!/tele|zoom/i.test(c.label));
+    const camId = (sinTele[0] || trasera[0] || cams[cams.length-1]).id;
+
+    html5Qr.start(
+      camId,
+      {
+        fps:10,
+        qrbox:{width:230, height:230},
+        aspectRatio:1.0,
+        videoConstraints:{
+          facingMode:"environment",
+          advanced:[{ zoom:1 }]
+        }
+      },
+      onScan
+    ).then(()=>{
       status.textContent='Apunta al código QR...';
+      // forzar zoom 1x y enfoque continuo si el celular lo permite
+      try{
+        html5Qr.applyVideoConstraints({ advanced:[{ zoom:1, focusMode:"continuous" }] });
+      }catch(e){ /* el navegador no soporta estos controles, se ignora */ }
+
+      // habilitar control manual de zoom como respaldo
+      const zoomBox = document.getElementById('zoom-control');
+      const slider = document.getElementById('zoom-slider');
+      zoomBox.style.display = 'block';
+      slider.oninput = ()=>{
+        try{ html5Qr.applyVideoConstraints({ advanced:[{ zoom: parseFloat(slider.value) }] }); }
+        catch(e){ /* dispositivo sin soporte de zoom manual */ }
+      };
     }).catch(()=>{ status.textContent='No se pudo iniciar la cámara.'; });
   }).catch(()=>{ status.textContent='Sin acceso a la cámara.'; });
 }
 function stopScanner(){
   if(html5Qr){ html5Qr.stop().catch(()=>{}); html5Qr=null; }
+  document.getElementById('zoom-control').style.display = 'none';
 }
 
 async function onScan(decodedText){
