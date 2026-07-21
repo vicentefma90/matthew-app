@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Matthew · Membresías</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
@@ -25,6 +25,7 @@
     background:var(--bg);
     color:var(--ink);
     padding:24px 16px 60px;
+    touch-action: manipulation;
   }
   .wrap{max-width:480px;margin:0 auto;}
   header{margin-bottom:20px;}
@@ -71,8 +72,8 @@
   #qr-result .name{font-weight:700;margin-top:10px;font-size:15px;}
   #qr-result .id{font-size:11.5px;color:var(--ink-soft);font-family:monospace;}
 
-  #reader{width:100%;min-height:260px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#111;}
-  #reader video{width:100% !important;border-radius:12px;display:block;}
+  #reader{width:100%;min-height:260px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#111;touch-action:none;}
+  #reader video{width:100% !important;border-radius:12px;display:block;touch-action:none;}
   #reader__scan_region{border-radius:12px;}
   #reader__dashboard{background:#fff;padding:8px !important;}
   #scan-status{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:10px;}
