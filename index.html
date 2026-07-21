@@ -67,10 +67,10 @@
   .btn-secondary{background:transparent;color:var(--green-dark);border:1.5px solid var(--green);}
   .btn-primary:disabled{background:#B9C6BE;cursor:not-allowed;}
 
-  #qr-result{display:none;text-align:center;margin-top:18px;padding-top:18px;border-top:1px dashed var(--line);}
-  #qr-canvas-holder{display:inline-block;padding:12px;background:#fff;border-radius:12px;border:1px solid var(--line);}
-  #qr-result .name{font-weight:700;margin-top:10px;font-size:15px;}
-  #qr-result .id{font-size:11.5px;color:var(--ink-soft);font-family:monospace;}
+  #qr-result, #reenviar-result{display:none;text-align:center;margin-top:18px;padding-top:18px;border-top:1px dashed var(--line);}
+  #qr-canvas-holder, #reenviar-qr-holder{display:inline-block;padding:12px;background:#fff;border-radius:12px;border:1px solid var(--line);}
+  #qr-result .name, #reenviar-result .name{font-weight:700;margin-top:10px;font-size:15px;}
+  #qr-result .id, #reenviar-result .id{font-size:11.5px;color:var(--ink-soft);font-family:monospace;}
 
   #reader{width:100%;min-height:260px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#111;touch-action:none;}
   #reader video{width:100% !important;border-radius:12px;display:block;touch-action:none;}
@@ -94,6 +94,22 @@
   .config{margin-top:24px;}
   .config summary{cursor:pointer;font-size:12.5px;color:var(--ink-soft);font-weight:600;}
   .config[open] summary{margin-bottom:10px;}
+
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(30,36,32,.45);
+    align-items:center;justify-content:center;padding:20px;z-index:999;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--card);border-radius:16px;padding:26px 22px;max-width:320px;
+    width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25);
+    animation:pop .15s ease-out;
+  }
+  @keyframes pop{ from{transform:scale(.92);opacity:0;} to{transform:scale(1);opacity:1;} }
+  .modal-icon{font-size:30px;margin-bottom:8px;}
+  .modal-text{font-size:14.5px;color:var(--ink);line-height:1.4;}
+  .modal-box.err .modal-text{color:var(--red);}
+  .modal-box.ok .modal-text{color:var(--green-dark);}
 </style>
 </head>
 <body>
@@ -107,6 +123,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="alta">Nuevo cliente</div>
     <div class="tab" data-tab="checkin">Check-in</div>
+    <div class="tab" data-tab="reenviar">Reenviar QR</div>
   </div>
 
   <!-- ALTA -->
@@ -166,6 +183,26 @@
     </div>
   </div>
 
+  <!-- REENVIAR -->
+  <div class="panel" id="panel-reenviar" style="display:none;">
+    <div class="card">
+      <h2>Buscar cliente</h2>
+      <p class="hint">Busca por teléfono para volver a generar su mismo QR.</p>
+
+      <label>Teléfono del cliente</label>
+      <input id="buscar-telefono" placeholder="10 dígitos">
+      <button class="btn-primary" id="btn-buscar">Buscar y generar QR</button>
+      <div class="msg" id="msg-buscar"></div>
+
+      <div id="reenviar-result">
+        <div id="reenviar-qr-holder"></div>
+        <div class="name" id="reenviar-nombre"></div>
+        <div class="id" id="reenviar-id"></div>
+        <button class="btn-secondary" id="btn-descargar-reenvio">Descargar QR</button>
+      </div>
+    </div>
+  </div>
+
   <details class="config">
     <summary>Configuración (URL de Google Apps Script)</summary>
     <label>Pega aquí la URL de tu Web App</label>
@@ -173,6 +210,14 @@
     <button class="btn-secondary" id="btn-guardar-url">Guardar URL</button>
     <div class="msg" id="msg-config"></div>
   </details>
+</div>
+
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-icon" id="modal-icon"></div>
+    <div class="modal-text" id="modal-text"></div>
+    <button class="btn-primary" id="modal-close" style="margin-top:16px;">Entendido</button>
+  </div>
 </div>
 
 <script>
@@ -201,6 +246,20 @@ document.getElementById('btn-guardar-url').addEventListener('click', ()=>{
 });
 loadUrl();
 
+// ---- mensajes emergentes ----
+function showModal(text, type){
+  const box = document.getElementById('modal-box');
+  const icon = document.getElementById('modal-icon');
+  const msg = document.getElementById('modal-text');
+  box.className = 'modal-box ' + (type || '');
+  icon.textContent = type === 'err' ? '⚠️' : '✅';
+  msg.textContent = text;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+document.getElementById('modal-close').addEventListener('click', ()=>{
+  document.getElementById('modal-overlay').classList.remove('show');
+});
+
 // ---- tabs ----
 document.querySelectorAll('.tab').forEach(tab=>{
   tab.addEventListener('click', ()=>{
@@ -209,6 +268,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     const target = tab.dataset.tab;
     document.getElementById('panel-alta').style.display = target==='alta' ? 'block':'none';
     document.getElementById('panel-checkin').style.display = target==='checkin' ? 'block':'none';
+    document.getElementById('panel-reenviar').style.display = target==='reenviar' ? 'block':'none';
     if(target==='checkin') startScanner(); else stopScanner();
   });
 });
@@ -231,16 +291,15 @@ document.getElementById('btn-generar').addEventListener('click', async ()=>{
   const nombre = document.getElementById('nombre').value.trim();
   const telefono = document.getElementById('telefono').value.trim();
   const visitas = parseInt(document.getElementById('visitas').value || '4', 10);
-  const msg = document.getElementById('msg-alta');
   const btn = document.getElementById('btn-generar');
 
-  if(!nombre){ msg.className='msg err'; msg.textContent='Escribe el nombre del cliente.'; return; }
+  if(!nombre){ showModal('Escribe el nombre del cliente.', 'err'); return; }
 
   const id = 'M-' + Date.now().toString(36).toUpperCase();
   btn.disabled = true; btn.textContent = 'Guardando...';
   try{
     await callBackend('createClient', { id, nombre, telefono, visitas });
-    msg.className='msg ok'; msg.textContent='Cliente guardado.';
+    showModal('Cliente guardado correctamente.', 'ok');
 
     document.getElementById('qr-canvas-holder').innerHTML = '';
     new QRCode(document.getElementById('qr-canvas-holder'), { text:id, width:180, height:180 });
@@ -248,7 +307,7 @@ document.getElementById('btn-generar').addEventListener('click', async ()=>{
     document.getElementById('qr-id').textContent = id;
     document.getElementById('qr-result').style.display = 'block';
   }catch(e){
-    msg.className='msg err'; msg.textContent = e.message;
+    showModal(e.message, 'err');
   }finally{
     btn.disabled=false; btn.textContent='Generar QR y guardar';
   }
@@ -262,10 +321,7 @@ document.getElementById('btn-descargar').addEventListener('click', ()=>{
   link.href = img.tagName === 'CANVAS' ? img.toDataURL('image/png') : img.src;
   link.click();
 
-  // agradecer y dejar todo listo para el siguiente cliente
-  const msg = document.getElementById('msg-alta');
-  msg.className = 'msg ok';
-  msg.textContent = '¡Gracias! QR descargado. Listo para capturar al siguiente cliente.';
+  showModal('¡Gracias! QR descargado. Listo para capturar al siguiente cliente.', 'ok');
 
   document.getElementById('nombre').value = '';
   document.getElementById('telefono').value = '';
@@ -273,8 +329,6 @@ document.getElementById('btn-descargar').addEventListener('click', ()=>{
   document.getElementById('qr-result').style.display = 'none';
   document.getElementById('qr-canvas-holder').innerHTML = '';
   document.getElementById('nombre').focus();
-
-  setTimeout(()=>{ msg.style.display='none'; }, 3500);
 });
 
 // ---- CHECKIN: escanear ----
@@ -320,8 +374,7 @@ document.getElementById('qr-file').addEventListener('change', async (e)=>{
 });
 
 async function onScan(decodedText){
-  if(!html5Qr) return;
-  await html5Qr.pause(true);
+  if(html5Qr){ try{ await html5Qr.pause(true); }catch(e){ /* no estaba corriendo, se ignora */ } }
   document.getElementById('scan-status').textContent = 'Buscando cliente...';
   try{
     const data = await callBackend('getClient', { id: decodedText });
@@ -333,8 +386,9 @@ async function onScan(decodedText){
     document.getElementById('client-box').style.display = 'block';
     document.getElementById('scan-status').textContent = 'Cliente encontrado.';
   }catch(e){
-    document.getElementById('scan-status').textContent = e.message;
-    setTimeout(()=>{ if(html5Qr) html5Qr.resume(); }, 1500);
+    showModal(e.message, 'err');
+    document.getElementById('scan-status').textContent = 'Apunta al código QR...';
+    setTimeout(()=>{ if(html5Qr) html5Qr.resume().catch(()=>{}); }, 300);
   }
 }
 
@@ -346,21 +400,51 @@ document.getElementById('btn-checkin').addEventListener('click', async ()=>{
   btn.disabled=true; btn.textContent='Registrando...';
   try{
     const data = await callBackend('checkin', { id: currentClient.id, comida });
-    msg.className='msg ok'; msg.textContent='Visita registrada. Le quedan ' + data.restantes + ' este mes.';
+    showModal('Visita registrada. Le quedan ' + data.restantes + ' este mes.', 'ok');
     document.getElementById('c-pill').textContent = data.restantes + ' visita(s) restantes este mes';
     document.getElementById('c-comida').value='';
-    setTimeout(()=>{
-      document.getElementById('client-box').style.display='none';
-      msg.className='msg'; msg.style.display='none';
-      currentClient = null;
-      if(html5Qr) html5Qr.resume();
-      document.getElementById('scan-status').textContent = 'Apunta al código QR...';
-    }, 2000);
+    document.getElementById('client-box').style.display='none';
+    currentClient = null;
+    if(html5Qr) html5Qr.resume().catch(()=>{});
+    document.getElementById('scan-status').textContent = 'Apunta al código QR...';
   }catch(e){
-    msg.className='msg err'; msg.textContent = e.message;
+    showModal(e.message, 'err');
   }finally{
     btn.disabled=false; btn.textContent='Registrar visita';
   }
+});
+
+// ---- REENVIAR QR ----
+document.getElementById('btn-buscar').addEventListener('click', async ()=>{
+  const telefono = document.getElementById('buscar-telefono').value.trim();
+  const btn = document.getElementById('btn-buscar');
+  if(!telefono){ showModal('Escribe el teléfono del cliente.', 'err'); return; }
+
+  btn.disabled = true; btn.textContent = 'Buscando...';
+  try{
+    const data = await callBackend('findByPhone', { telefono });
+    const holder = document.getElementById('reenviar-qr-holder');
+    holder.innerHTML = '';
+    new QRCode(holder, { text: data.client.id, width:180, height:180 });
+    document.getElementById('reenviar-nombre').textContent = data.client.nombre;
+    document.getElementById('reenviar-id').textContent = data.client.id;
+    document.getElementById('reenviar-result').style.display = 'block';
+  }catch(e){
+    showModal(e.message, 'err');
+    document.getElementById('reenviar-result').style.display = 'none';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Buscar y generar QR';
+  }
+});
+
+document.getElementById('btn-descargar-reenvio').addEventListener('click', ()=>{
+  const img = document.querySelector('#reenviar-qr-holder img') || document.querySelector('#reenviar-qr-holder canvas');
+  const nombre = document.getElementById('reenviar-nombre').textContent || 'cliente';
+  const link = document.createElement('a');
+  link.download = 'QR-' + nombre.replace(/\s+/g,'_') + '.png';
+  link.href = img.tagName === 'CANVAS' ? img.toDataURL('image/png') : img.src;
+  link.click();
+  showModal('QR descargado, ya lo puedes reenviar al cliente.', 'ok');
 });
 </script>
 </body>
