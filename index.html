@@ -357,6 +357,13 @@ function stopScanner(){
   if(html5Qr){ html5Qr.stop().catch(()=>{}); html5Qr=null; }
   document.getElementById('zoom-control').style.display = 'none';
 }
+function reanudarCamara(){
+  if(!html5Qr) return;
+  try{
+    const r = html5Qr.resume();
+    if(r && typeof r.catch === 'function') r.catch(()=>{});
+  }catch(e){ /* algunos navegadores no devuelven promesa aquí, se ignora */ }
+}
 
 document.getElementById('qr-file').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
@@ -388,7 +395,7 @@ async function onScan(decodedText){
   }catch(e){
     showModal(e.message, 'err');
     document.getElementById('scan-status').textContent = 'Apunta al código QR...';
-    setTimeout(()=>{ if(html5Qr) html5Qr.resume().catch(()=>{}); }, 300);
+    setTimeout(()=>{ reanudarCamara(); }, 300);
   }
 }
 
@@ -405,7 +412,7 @@ document.getElementById('btn-checkin').addEventListener('click', async ()=>{
     document.getElementById('c-comida').value='';
     document.getElementById('client-box').style.display='none';
     currentClient = null;
-    if(html5Qr) html5Qr.resume().catch(()=>{});
+    if(html5Qr) reanudarCamara();
     document.getElementById('scan-status').textContent = 'Apunta al código QR...';
   }catch(e){
     showModal(e.message, 'err');
