@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matthew · Membresías</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg: #F7F5F0;
+    --card: #FFFFFF;
+    --ink: #1E2420;
+    --ink-soft: #5B655D;
+    --line: #E4E0D6;
+    --green: #2F6F4F;
+    --green-dark: #234F39;
+    --gold: #C9A24B;
+    --red: #B3483C;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:480px;margin:0 auto;}
+  header{margin-bottom:20px;}
+  header .eyebrow{
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--green);font-weight:700;
+  }
+  header h1{margin:4px 0 0;font-size:26px;font-weight:800;letter-spacing:-.01em;}
+  header p{margin:6px 0 0;color:var(--ink-soft);font-size:14px;}
+
+  .tabs{display:flex;gap:8px;margin:20px 0 16px;background:var(--line);padding:4px;border-radius:12px;}
+  .tab{
+    flex:1;text-align:center;padding:10px 8px;border-radius:9px;font-size:13.5px;
+    font-weight:600;cursor:pointer;color:var(--ink-soft);transition:.15s;
+  }
+  .tab.active{background:var(--card);color:var(--green-dark);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:16px;
+    padding:20px;margin-bottom:16px;
+  }
+  .card h2{margin:0 0 4px;font-size:16px;}
+  .card .hint{margin:0 0 16px;color:var(--ink-soft);font-size:12.5px;}
+
+  label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin:12px 0 5px;}
+  label:first-of-type{margin-top:0;}
+  input, select{
+    width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+    font-size:14.5px;background:#FBFAF7;color:var(--ink);
+  }
+  input:focus, select:focus{outline:2px solid var(--green);outline-offset:1px;border-color:var(--green);}
+
+  button{
+    width:100%;padding:13px;border:none;border-radius:10px;font-size:14.5px;font-weight:700;
+    cursor:pointer;margin-top:16px;transition:.15s;
+  }
+  .btn-primary{background:var(--green);color:#fff;}
+  .btn-primary:hover{background:var(--green-dark);}
+  .btn-secondary{background:transparent;color:var(--green-dark);border:1.5px solid var(--green);}
+  .btn-primary:disabled{background:#B9C6BE;cursor:not-allowed;}
+
+  #qr-result{display:none;text-align:center;margin-top:18px;padding-top:18px;border-top:1px dashed var(--line);}
+  #qr-canvas-holder{display:inline-block;padding:12px;background:#fff;border-radius:12px;border:1px solid var(--line);}
+  #qr-result .name{font-weight:700;margin-top:10px;font-size:15px;}
+  #qr-result .id{font-size:11.5px;color:var(--ink-soft);font-family:monospace;}
+
+  #reader{width:100%;min-height:260px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#111;}
+  #reader video{width:100% !important;border-radius:12px;display:block;}
+  #reader__scan_region{border-radius:12px;}
+  #reader__dashboard{background:#fff;padding:8px !important;}
+  #scan-status{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:10px;}
+
+  .client-box{display:none;margin-top:16px;padding-top:16px;border-top:1px dashed var(--line);}
+  .client-box .name{font-size:17px;font-weight:800;}
+  .visit-pill{
+    display:inline-flex;align-items:center;gap:6px;margin-top:6px;
+    background:#EEF4F0;color:var(--green-dark);font-weight:700;font-size:13px;
+    padding:5px 12px;border-radius:999px;
+  }
+  .visit-pill.low{background:#F7EAE8;color:var(--red);}
+
+  .msg{font-size:13px;padding:10px 12px;border-radius:10px;margin-top:12px;display:none;}
+  .msg.ok{background:#EEF4F0;color:var(--green-dark);display:block;}
+  .msg.err{background:#F7EAE8;color:var(--red);display:block;}
+
+  .config{margin-top:24px;}
+  .config summary{cursor:pointer;font-size:12.5px;color:var(--ink-soft);font-weight:600;}
+  .config[open] summary{margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Sistema de membresías</div>
+    <h1>Matthew</h1>
+    <p>Alta de clientes, código QR y registro diario de visitas.</p>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="alta">Nuevo cliente</div>
+    <div class="tab" data-tab="checkin">Check-in</div>
+  </div>
+
+  <!-- ALTA -->
+  <div class="panel" id="panel-alta">
+    <div class="card">
+      <h2>Registrar cliente</h2>
+      <p class="hint">Genera su membresía y su código QR único.</p>
+
+      <label>Nombre</label>
+      <input id="nombre" placeholder="Nombre del cliente">
+
+      <label>Teléfono</label>
+      <input id="telefono" placeholder="10 dígitos">
+
+      <label>Visitas incluidas al mes</label>
+      <input id="visitas" type="number" value="4" min="1">
+
+      <button class="btn-primary" id="btn-generar">Generar QR y guardar</button>
+      <div class="msg" id="msg-alta"></div>
+
+      <div id="qr-result">
+        <div id="qr-canvas-holder"></div>
+        <div class="name" id="qr-nombre"></div>
+        <div class="id" id="qr-id"></div>
+        <button class="btn-secondary" id="btn-descargar">Descargar QR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHECKIN -->
+  <div class="panel" id="panel-checkin" style="display:none;">
+    <div class="card">
+      <h2>Escanear membresía</h2>
+      <p class="hint">Apunta la cámara al QR del cliente.</p>
+      <div id="reader"></div>
+      <div id="scan-status">Iniciando cámara…</div>
+
+      <div class="client-box" id="client-box">
+        <div class="name" id="c-nombre"></div>
+        <span class="visit-pill" id="c-pill"></span>
+
+        <label>¿Qué comió?</label>
+        <input id="c-comida" placeholder="Ej. Plato del día, Aguachile...">
+
+        <button class="btn-primary" id="btn-checkin">Registrar visita</button>
+        <div class="msg" id="msg-checkin"></div>
+      </div>
+    </div>
+  </div>
+
+  <details class="config">
+    <summary>Configuración (URL de Google Apps Script)</summary>
+    <label>Pega aquí la URL de tu Web App</label>
+    <input id="script-url" placeholder="https://script.google.com/macros/s/AKfy.../exec">
+    <button class="btn-secondary" id="btn-guardar-url">Guardar URL</button>
+    <div class="msg" id="msg-config"></div>
+  </details>
+</div>
+
+<script>
+let scriptUrl = "";
+let html5Qr = null;
+let currentClient = null;
+
+// ---- storage (persist the Apps Script URL locally, per navegador) ----
+function loadUrl(){
+  try{
+    const saved = localStorage.getItem('matthew-script-url');
+    if(saved){ scriptUrl = saved; document.getElementById('script-url').value = saved; }
+  }catch(e){ /* navegador sin acceso a localStorage (poco común) */ }
+}
+document.getElementById('btn-guardar-url').addEventListener('click', ()=>{
+  const val = document.getElementById('script-url').value.trim();
+  const m = document.getElementById('msg-config');
+  if(!val){ m.className='msg err'; m.textContent='Pega la URL primero.'; return; }
+  scriptUrl = val;
+  try{
+    localStorage.setItem('matthew-script-url', val);
+    m.className='msg ok'; m.textContent='URL guardada en este navegador.';
+  }catch(e){
+    m.className='msg ok'; m.textContent='URL lista para usarse (no se pudo guardar para la próxima vez, tendrás que pegarla de nuevo si cierras la página).';
+  }
+});
+loadUrl();
+
+// ---- tabs ----
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const target = tab.dataset.tab;
+    document.getElementById('panel-alta').style.display = target==='alta' ? 'block':'none';
+    document.getElementById('panel-checkin').style.display = target==='checkin' ? 'block':'none';
+    if(target==='checkin') startScanner(); else stopScanner();
+  });
+});
+
+// ---- helper: call the Apps Script backend ----
+async function callBackend(action, payload){
+  if(!scriptUrl){ throw new Error('Falta configurar la URL de Google Apps Script.'); }
+  const res = await fetch(scriptUrl, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({ action, ...payload })
+  });
+  const data = await res.json();
+  if(!data.ok) throw new Error(data.error || 'Error del servidor.');
+  return data;
+}
+
+// ---- ALTA: generar QR ----
+document.getElementById('btn-generar').addEventListener('click', async ()=>{
+  const nombre = document.getElementById('nombre').value.trim();
+  const telefono = document.getElementById('telefono').value.trim();
+  const visitas = parseInt(document.getElementById('visitas').value || '4', 10);
+  const msg = document.getElementById('msg-alta');
+  const btn = document.getElementById('btn-generar');
+
+  if(!nombre){ msg.className='msg err'; msg.textContent='Escribe el nombre del cliente.'; return; }
+
+  const id = 'M-' + Date.now().toString(36).toUpperCase();
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try{
+    await callBackend('createClient', { id, nombre, telefono, visitas });
+    msg.className='msg ok'; msg.textContent='Cliente guardado.';
+
+    document.getElementById('qr-canvas-holder').innerHTML = '';
+    new QRCode(document.getElementById('qr-canvas-holder'), { text:id, width:180, height:180 });
+    document.getElementById('qr-nombre').textContent = nombre;
+    document.getElementById('qr-id').textContent = id;
+    document.getElementById('qr-result').style.display = 'block';
+  }catch(e){
+    msg.className='msg err'; msg.textContent = e.message;
+  }finally{
+    btn.disabled=false; btn.textContent='Generar QR y guardar';
+  }
+});
+
+document.getElementById('btn-descargar').addEventListener('click', ()=>{
+  const img = document.querySelector('#qr-canvas-holder img') || document.querySelector('#qr-canvas-holder canvas');
+  const nombre = document.getElementById('qr-nombre').textContent || 'cliente';
+  const link = document.createElement('a');
+  link.download = 'QR-' + nombre.replace(/\s+/g,'_') + '.png';
+  link.href = img.tagName === 'CANVAS' ? img.toDataURL('image/png') : img.src;
+  link.click();
+
+  // agradecer y dejar todo listo para el siguiente cliente
+  const msg = document.getElementById('msg-alta');
+  msg.className = 'msg ok';
+  msg.textContent = '¡Gracias! QR descargado. Listo para capturar al siguiente cliente.';
+
+  document.getElementById('nombre').value = '';
+  document.getElementById('telefono').value = '';
+  document.getElementById('visitas').value = '4';
+  document.getElementById('qr-result').style.display = 'none';
+  document.getElementById('qr-canvas-holder').innerHTML = '';
+  document.getElementById('nombre').focus();
+
+  setTimeout(()=>{ msg.style.display='none'; }, 3500);
+});
+
+// ---- CHECKIN: escanear ----
+function startScanner(){
+  const status = document.getElementById('scan-status');
+  html5Qr = new Html5Qrcode('reader');
+  Html5Qrcode.getCameras().then(cams=>{
+    if(!cams.length){ status.textContent='No se encontró cámara.'; return; }
+    const camId = cams.find(c=>/back|rear|environment/i.test(c.label))?.id || cams[cams.length-1].id;
+    html5Qr.start(camId, { fps:10, qrbox:{width:230, height:230}, aspectRatio:1.0 }, onScan).then(()=>{
+      status.textContent='Apunta al código QR...';
+    }).catch(()=>{ status.textContent='No se pudo iniciar la cámara.'; });
+  }).catch(()=>{ status.textContent='Sin acceso a la cámara.'; });
+}
+function stopScanner(){
+  if(html5Qr){ html5Qr.stop().catch(()=>{}); html5Qr=null; }
+}
+
+async function onScan(decodedText){
+  if(!html5Qr) return;
+  await html5Qr.pause(true);
+  document.getElementById('scan-status').textContent = 'Buscando cliente...';
+  try{
+    const data = await callBackend('getClient', { id: decodedText });
+    currentClient = data.client;
+    document.getElementById('c-nombre').textContent = currentClient.nombre;
+    const pill = document.getElementById('c-pill');
+    pill.textContent = currentClient.restantes + ' visita(s) restantes este mes';
+    pill.className = 'visit-pill' + (currentClient.restantes<=0 ? ' low':'');
+    document.getElementById('client-box').style.display = 'block';
+    document.getElementById('scan-status').textContent = 'Cliente encontrado.';
+  }catch(e){
+    document.getElementById('scan-status').textContent = e.message;
+    setTimeout(()=>{ if(html5Qr) html5Qr.resume(); }, 1500);
+  }
+}
+
+document.getElementById('btn-checkin').addEventListener('click', async ()=>{
+  const comida = document.getElementById('c-comida').value.trim();
+  const msg = document.getElementById('msg-checkin');
+  const btn = document.getElementById('btn-checkin');
+  if(!currentClient){ return; }
+  btn.disabled=true; btn.textContent='Registrando...';
+  try{
+    const data = await callBackend('checkin', { id: currentClient.id, comida });
+    msg.className='msg ok'; msg.textContent='Visita registrada. Le quedan ' + data.restantes + ' este mes.';
+    document.getElementById('c-pill').textContent = data.restantes + ' visita(s) restantes este mes';
+    document.getElementById('c-comida').value='';
+    setTimeout(()=>{
+      document.getElementById('client-box').style.display='none';
+      msg.className='msg'; msg.style.display='none';
+      currentClient = null;
+      if(html5Qr) html5Qr.resume();
+      document.getElementById('scan-status').textContent = 'Apunta al código QR...';
+    }, 2000);
+  }catch(e){
+    msg.className='msg err'; msg.textContent = e.message;
+  }finally{
+    btn.disabled=false; btn.textContent='Registrar visita';
+  }
+});
+</script>
+</body>
+</html>
