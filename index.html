@@ -148,6 +148,11 @@
         <input type="range" id="zoom-slider" min="1" max="5" step="0.1" value="1">
       </div>
 
+      <label style="margin-top:16px;">¿No lee el QR en vivo? Tómale una foto</label>
+      <input type="file" id="qr-file" accept="image/*" capture="environment">
+      <div id="file-status" style="font-size:12.5px;color:var(--ink-soft);margin-top:6px;"></div>
+      <div id="file-reader" style="display:none;"></div>
+
       <div class="client-box" id="client-box">
         <div class="name" id="c-nombre"></div>
         <span class="visit-pill" id="c-pill"></span>
@@ -276,48 +281,43 @@ document.getElementById('btn-descargar').addEventListener('click', ()=>{
 function startScanner(){
   const status = document.getElementById('scan-status');
   html5Qr = new Html5Qrcode('reader');
-  Html5Qrcode.getCameras().then(cams=>{
-    if(!cams.length){ status.textContent='No se encontró cámara.'; return; }
-    // evitar lentes "tele/zoom" (que enfocan muy de cerca) y preferir la cámara
-    // trasera normal / "wide"
-    const trasera = cams.filter(c=>/back|rear|environment/i.test(c.label));
-    const sinTele = trasera.filter(c=>!/tele|zoom/i.test(c.label));
-    const camId = (sinTele[0] || trasera[0] || cams[cams.length-1]).id;
 
-    html5Qr.start(
-      camId,
-      {
-        fps:10,
-        qrbox:{width:230, height:230},
-        aspectRatio:1.0,
-        videoConstraints:{
-          facingMode:"environment",
-          advanced:[{ zoom:1 }]
-        }
-      },
-      onScan
-    ).then(()=>{
-      status.textContent='Apunta al código QR...';
-      // forzar zoom 1x y enfoque continuo si el celular lo permite
-      try{
-        html5Qr.applyVideoConstraints({ advanced:[{ zoom:1, focusMode:"continuous" }] });
-      }catch(e){ /* el navegador no soporta estos controles, se ignora */ }
-
-      // habilitar control manual de zoom como respaldo
-      const zoomBox = document.getElementById('zoom-control');
-      const slider = document.getElementById('zoom-slider');
-      zoomBox.style.display = 'block';
-      slider.oninput = ()=>{
-        try{ html5Qr.applyVideoConstraints({ advanced:[{ zoom: parseFloat(slider.value) }] }); }
-        catch(e){ /* dispositivo sin soporte de zoom manual */ }
-      };
-    }).catch(()=>{ status.textContent='No se pudo iniciar la cámara.'; });
-  }).catch(()=>{ status.textContent='Sin acceso a la cámara.'; });
+  html5Qr.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    onScan
+  ).then(()=>{
+    status.textContent = 'Apunta al código QR...';
+    const zoomBox = document.getElementById('zoom-control');
+    const slider = document.getElementById('zoom-slider');
+    zoomBox.style.display = 'block';
+    slider.oninput = ()=>{
+      try{ html5Qr.applyVideoConstraints({ advanced:[{ zoom: parseFloat(slider.value) }] }); }
+      catch(e){ /* este celular no permite ajustar el zoom manualmente */ }
+    };
+  }).catch((err)=>{
+    status.textContent = 'No se pudo iniciar la cámara: ' + err;
+  });
 }
 function stopScanner(){
   if(html5Qr){ html5Qr.stop().catch(()=>{}); html5Qr=null; }
   document.getElementById('zoom-control').style.display = 'none';
 }
+
+document.getElementById('qr-file').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  const fileStatus = document.getElementById('file-status');
+  if(!file) return;
+  fileStatus.textContent = 'Leyendo imagen...';
+  try{
+    const reader = new Html5Qrcode('file-reader', { verbose:false });
+    const decodedText = await reader.scanFile(file, false);
+    fileStatus.textContent = 'Código encontrado.';
+    onScan(decodedText);
+  }catch(err){
+    fileStatus.textContent = 'No se pudo leer el QR en esa foto, intenta con más luz y de frente.';
+  }
+});
 
 async function onScan(decodedText){
   if(!html5Qr) return;
