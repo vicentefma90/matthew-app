@@ -209,6 +209,8 @@
     <input id="script-url" placeholder="https://script.google.com/macros/s/AKfy.../exec">
     <button class="btn-secondary" id="btn-guardar-url">Guardar URL</button>
     <div class="msg" id="msg-config"></div>
+
+    <button class="btn-secondary" id="btn-probar" style="margin-top:10px;">Probar conexión con el backend</button>
   </details>
 
   <div style="text-align:center;font-size:11px;color:var(--ink-soft);margin-top:18px;">versión 7</div>
@@ -247,6 +249,15 @@ document.getElementById('btn-guardar-url').addEventListener('click', ()=>{
   }
 });
 loadUrl();
+
+document.getElementById('btn-probar').addEventListener('click', async ()=>{
+  try{
+    const data = await callBackend('ping', {});
+    showModal('Conectado. Versión del backend: ' + data.version, 'ok');
+  }catch(e){
+    showModal('No se pudo conectar: ' + e.message, 'err');
+  }
+});
 
 // ---- mensajes emergentes ----
 function showModal(text, type){
