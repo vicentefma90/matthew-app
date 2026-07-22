@@ -202,6 +202,7 @@
         <div class="name" id="reenviar-nombre"></div>
         <div class="id" id="reenviar-id"></div>
         <button class="btn-secondary" id="btn-descargar-reenvio">Descargar QR</button>
+        <button class="btn-primary" id="btn-correo-reenvio" style="margin-top:8px;display:none;">Reenviar por correo</button>
       </div>
     </div>
   </div>
@@ -216,7 +217,7 @@
     <button class="btn-secondary" id="btn-probar" style="margin-top:10px;">Probar conexión con el backend</button>
   </details>
 
-  <div style="text-align:center;font-size:11px;color:var(--ink-soft);margin-top:18px;">versión 9</div>
+  <div style="text-align:center;font-size:11px;color:var(--ink-soft);margin-top:18px;">versión 10</div>
 </div>
 
 <div id="modal-overlay" class="modal-overlay">
@@ -325,7 +326,7 @@ document.getElementById('btn-generar').addEventListener('click', async ()=>{
   try{
     const resp = await callBackend('createClient', { id, nombre, telefono, correo, visitas, qrImageBase64: qrBase64 });
     const aviso = correo
-      ? (resp.correoEnviado ? 'Cliente guardado y QR enviado por correo.' : 'Cliente guardado, pero no se pudo enviar el correo (revisa el correo o inténtalo de nuevo desde "Reenviar QR").')
+      ? (resp.correoEnviado ? 'Cliente guardado y QR enviado por correo.' : 'Cliente guardado, pero no se pudo enviar el correo. Detalle: ' + resp.errorCorreo)
       : 'Cliente guardado correctamente.';
     showModal(aviso, resp.correoEnviado === false && correo ? 'err' : 'ok');
 
@@ -449,6 +450,8 @@ document.getElementById('btn-checkin').addEventListener('click', async ()=>{
 });
 
 // ---- REENVIAR QR ----
+let reenviarClienteActual = null;
+
 document.getElementById('btn-buscar').addEventListener('click', async ()=>{
   const telefono = document.getElementById('buscar-telefono').value.trim();
   const btn = document.getElementById('btn-buscar');
@@ -457,17 +460,40 @@ document.getElementById('btn-buscar').addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'Buscando...';
   try{
     const data = await callBackend('findByPhone', { telefono });
+    reenviarClienteActual = data.client;
     const holder = document.getElementById('reenviar-qr-holder');
     holder.innerHTML = '';
     new QRCode(holder, { text: data.client.id, width:180, height:180 });
     document.getElementById('reenviar-nombre').textContent = data.client.nombre;
     document.getElementById('reenviar-id').textContent = data.client.id;
     document.getElementById('reenviar-result').style.display = 'block';
+    document.getElementById('btn-correo-reenvio').style.display = data.client.correo ? 'block' : 'none';
   }catch(e){
     showModal(e.message, 'err');
     document.getElementById('reenviar-result').style.display = 'none';
   }finally{
     btn.disabled = false; btn.textContent = 'Buscar y generar QR';
+  }
+});
+
+document.getElementById('btn-correo-reenvio').addEventListener('click', async ()=>{
+  if(!reenviarClienteActual){ return; }
+  const btn = document.getElementById('btn-correo-reenvio');
+  const qrEl = document.querySelector('#reenviar-qr-holder canvas') || document.querySelector('#reenviar-qr-holder img');
+  const qrBase64 = qrEl.tagName === 'CANVAS' ? qrEl.toDataURL('image/png') : qrEl.src;
+
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try{
+    await callBackend('reenviarCorreo', {
+      correo: reenviarClienteActual.correo,
+      nombre: reenviarClienteActual.nombre,
+      qrImageBase64: qrBase64
+    });
+    showModal('QR reenviado por correo a ' + reenviarClienteActual.correo, 'ok');
+  }catch(e){
+    showModal('No se pudo enviar el correo. Detalle: ' + e.message, 'err');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Reenviar por correo';
   }
 });
 
