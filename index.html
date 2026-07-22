@@ -213,7 +213,7 @@
     <button class="btn-secondary" id="btn-probar" style="margin-top:10px;">Probar conexión con el backend</button>
   </details>
 
-  <div style="text-align:center;font-size:11px;color:var(--ink-soft);margin-top:18px;">versión 7</div>
+  <div style="text-align:center;font-size:11px;color:var(--ink-soft);margin-top:18px;">versión 8 (modo diagnóstico)</div>
 </div>
 
 <div id="modal-overlay" class="modal-overlay">
@@ -420,7 +420,7 @@ document.getElementById('btn-checkin').addEventListener('click', async ()=>{
   btn.disabled=true; btn.textContent='Registrando...';
   try{
     const data = await callBackend('checkin', { id: currentClient.id, comida });
-    showModal('Visita registrada. Le quedan ' + data.restantes + ' este mes.', 'ok');
+    showModal('Visita registrada. Le quedan ' + data.restantes + ' este mes. (debug: hoy=' + data.debugHoy + ' | antes=' + JSON.stringify(data.debugFechasAntes) + ')', 'ok');
     document.getElementById('c-pill').textContent = data.restantes + ' visita(s) restantes este mes';
     document.getElementById('c-comida').value='';
     document.getElementById('client-box').style.display='none';
